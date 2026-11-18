@@ -1652,15 +1652,15 @@ void App::draw_hints(ui::Canvas &canvas) const
             break;
         }
     }
-    const bool own_hints =
-        tabs_focused_ || (tabs_.active() == kSources &&
-                          (sources_.choosing_user_agent() || sources_.choosing_timing()));
+    const bool sources_tab = tabs_.active() == kSources;
+    const bool own_hints = tabs_focused_ || (sources_tab && (sources_.choosing_user_agent() ||
+                                                           sources_.choosing_timing()));
     if (!own_hints && tabs_.active() < kSettings && tabs_.active() != kVod)
         hints[count++] = {ui::Button::options, tr("Update")};
-    if (!own_hints && tabs_.active() != kLive && tabs_.active() != kVod &&
+    const bool adding_source = sources_tab && !search_focused_ && sources_.focused_on_source_setup();
+    if (!own_hints && !adding_source && tabs_.active() != kLive && tabs_.active() != kVod &&
         !(browsing() && shared_.model.filtering()))
         hints[count++] = {ui::Button::circle, tr("Live TV")};
-    const bool sources_tab = tabs_.active() == kSources;
     const float footer_y = sources_tab ? 1004.0f : kHintsY;
     ui::HintLayout layout;
     layout.size = 36.0f;
@@ -1678,9 +1678,12 @@ void App::draw_hints(ui::Canvas &canvas) const
         std::move(remove_hint + 1, end, remove_hint);
         --count;
         constexpr float hint_width = kWidth - 2.0f * kMargin;
-        if (count > 0 && hints[count - 1].button == ui::Button::circle &&
-            ui::measure_hints(canvas.fonts, hints, count, layout) > hint_width)
+        float width = ui::measure_hints(canvas.fonts, hints, count, layout);
+        if (count > 0 && hints[count - 1].button == ui::Button::circle && width > hint_width)
+        {
             --count;
+            width = ui::measure_hints(canvas.fonts, hints, count, layout);
+        }
 
         // Keep L3 clear of the screen edges and the crowded footer row.
         if (shared_.settings.larger_text)
@@ -1690,8 +1693,10 @@ void App::draw_hints(ui::Canvas &canvas) const
         ui::draw_hints(canvas.list, canvas.fonts, ui::GlyphStyle::dark(), &remove, 1,
                        (kWidth - remove_width) * 0.5f, false, layout);
         layout.cy = footer_y;
-        draw_hint_row(canvas.list, canvas.fonts, hints, count, kWidth - kMargin, hint_width,
-                      layout, true);
+        if (count > 1 && width > hint_width)
+            layout.item_gap = std::max(0.0f, layout.item_gap - (width - hint_width) / (count - 1));
+        ui::draw_hints(canvas.list, canvas.fonts, ui::GlyphStyle::dark(), hints, count,
+                       kWidth - kMargin, true, layout);
     }
     else if (shared_.settings.larger_text && count > 4)
     {

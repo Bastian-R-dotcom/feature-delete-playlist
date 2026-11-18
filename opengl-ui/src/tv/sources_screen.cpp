@@ -18,6 +18,7 @@ namespace
 {
 constexpr Rect kList{kMargin, 250, 1010, 670};
 constexpr Rect kPanel{1144, 250, kWidth - kMargin - 1144, 640};
+constexpr std::int64_t kSourceCheckRow = -7;
 // Compatibility strings, not a claim that this app runs either client.
 constexpr const char *kUserAgents[] = {"", "", "IPTVSmartersPro", "VLC/3.0.21 LibVLC/3.0.21"};
 
@@ -103,7 +104,7 @@ void SourcesScreen::sync()
         check.title = tr(model.checking_source() ? "Cancel source check" : "Check active source");
         check.subtitle = model.source_check_status();
         rows.push_back(std::move(check));
-        ids_.push_back(-7);
+        ids_.push_back(kSourceCheckRow);
     }
     ui::ListItem playlist;
     playlist.title = tr("Add another playlist");
@@ -154,6 +155,12 @@ std::int64_t SourcesScreen::focused_id() const
 {
     const int focus = list_.focus();
     return focus >= 0 && static_cast<std::size_t>(focus) < ids_.size() ? ids_[focus] : 1;
+}
+
+bool SourcesScreen::focused_on_source_setup() const
+{
+    const auto id = focused_id();
+    return (id < 0 && id != kSourceCheckRow) || needs_setup(shared_.model.saved_source(id));
 }
 
 void SourcesScreen::enter()
@@ -303,7 +310,7 @@ void SourcesScreen::handle(const InputFrame &input, ui::Feedback &feedback)
     }
     if (list_.handle(input, feedback) == ui::Event::activated)
     {
-        if (id == -7)
+        if (id == kSourceCheckRow)
         {
             shared_.preview.clear();
             model.toggle_source_check();
@@ -380,12 +387,12 @@ void SourcesScreen::draw(ui::Canvas &canvas) const
     const float left = kPanel.x + 36, width = kPanel.w - 72;
     const auto id = focused_id();
     const auto *source = model.saved_source(id);
-    const std::string title = id == -7            ? tr("Check active source")
-                              : source != nullptr ? source_title(*source)
-                                                  : tr("Add a source");
+    const std::string title = id == kSourceCheckRow ? tr("Check active source")
+                              : source != nullptr   ? source_title(*source)
+                                                    : tr("Add a source");
     ui::text(draw, fonts.display, fonts.display.font->fit(title, 36, width), left, 315, 36,
              theme.text);
-    if (id == -7)
+    if (id == kSourceCheckRow)
     {
         ui::paragraph(
             draw, fonts.regular,
@@ -510,7 +517,7 @@ int SourcesScreen::hints(ui::Hint *out, int capacity) const
         return count;
     }
     add({ui::Button::cross,
-         focused_id() == -7
+         focused_id() == kSourceCheckRow
              ? tr(shared_.model.checking_source() ? "Cancel source check" : "Check active source")
          : focused_id() < 0                                      ? tr("Add")
          : needs_setup(shared_.model.saved_source(focused_id())) ? tr("Set up")
