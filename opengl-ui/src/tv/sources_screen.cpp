@@ -41,6 +41,11 @@ bool needs_setup(const SavedSource *source)
     return source != nullptr && source->url.empty() && source->kind != 0;
 }
 
+bool removable_source(const SavedSource *source)
+{
+    return source != nullptr && source->id > 1 && source->kind != 0 && !source->url.empty();
+}
+
 const char *source_title(const SavedSource &source)
 {
     static constexpr const char *defaults[] = {"No source", "Custom playlist",
@@ -227,6 +232,17 @@ void SourcesScreen::handle(const InputFrame &input, ui::Feedback &feedback)
         return;
     }
     const auto id = focused_id();
+    const auto *source_to_remove = input.is_pressed(Action::l3) ? model.saved_source(id) : nullptr;
+    if (removable_source(source_to_remove))
+    {
+        std::string name = source_title(*source_to_remove);
+        const bool removed = model.remove_source(id);
+        feedback.play(removed ? audio::Cue::select : audio::Cue::error);
+        model.announce(removed ? Level::ready : Level::error,
+                       tr(removed ? "Source removed" : "The source could not be removed"),
+                       std::move(name), 4.0f);
+        return;
+    }
     if (input.is_pressed(Action::r3) && id > 0)
     {
         if (!model.require_parent())
@@ -501,11 +517,13 @@ int SourcesScreen::hints(ui::Hint *out, int capacity) const
                                                                  : tr("Use source")});
     if (focused_id() > 1)
         add({ui::Button::triangle, tr("Edit")});
+    if (removable_source(shared_.model.saved_source(focused_id())))
+        add({ui::Button::left_stick, tr("Remove source")});
     if (focused_id() > 0)
     {
         add({ui::Button::square, tr("Refresh schedule")});
-        add({ui::Button::l2, tr("XMLTV guide")});
         add({ui::Button::right_stick, tr("Guide timing")});
+        add({ui::Button::l2, tr("XMLTV guide")});
     }
     if (focused_id() > 1)
         add({ui::Button::r2, tr("HTTP settings")});

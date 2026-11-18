@@ -1660,19 +1660,48 @@ void App::draw_hints(ui::Canvas &canvas) const
     if (!own_hints && tabs_.active() != kLive && tabs_.active() != kVod &&
         !(browsing() && shared_.model.filtering()))
         hints[count++] = {ui::Button::circle, tr("Live TV")};
+    const bool sources_tab = tabs_.active() == kSources;
+    const float footer_y = sources_tab ? 1004.0f : kHintsY;
     ui::HintLayout layout;
     layout.size = 36.0f;
     layout.text_size = 23.0f;
-    layout.cy = kHintsY;
+    layout.cy = footer_y;
     layout.item_gap = 34.0f;
-    if (shared_.settings.larger_text && count > 4)
+    auto *const end = hints + count;
+    auto *remove_hint = sources_tab
+                            ? std::find_if(hints, end, [](const ui::Hint &hint)
+                                           { return hint.button == ui::Button::left_stick; })
+                            : end;
+    if (remove_hint != end)
     {
-        canvas.list.rounded_rect({0, 962, kWidth, 118}, 0, tone::night);
+        const ui::Hint remove = *remove_hint;
+        std::move(remove_hint + 1, end, remove_hint);
+        --count;
+        constexpr float hint_width = kWidth - 2.0f * kMargin;
+        if (count > 0 && hints[count - 1].button == ui::Button::circle &&
+            ui::measure_hints(canvas.fonts, hints, count, layout) > hint_width)
+            --count;
+
+        // Keep L3 clear of the screen edges and the crowded footer row.
+        if (shared_.settings.larger_text)
+            canvas.list.rounded_rect({0, 930, kWidth, kHeight - 930}, 0, tone::night);
+        layout.cy = footer_y - 46.0f;
+        const float remove_width = ui::measure_hints(canvas.fonts, &remove, 1, layout);
+        ui::draw_hints(canvas.list, canvas.fonts, ui::GlyphStyle::dark(), &remove, 1,
+                       (kWidth - remove_width) * 0.5f, false, layout);
+        layout.cy = footer_y;
+        draw_hint_row(canvas.list, canvas.fonts, hints, count, kWidth - kMargin, hint_width,
+                      layout, true);
+    }
+    else if (shared_.settings.larger_text && count > 4)
+    {
         const int first_row = (count + 1) / 2;
-        layout.cy = 982;
+        layout.cy = footer_y - 40.0f;
+        const float backdrop_y = layout.cy - 20.0f;
+        canvas.list.rounded_rect({0, backdrop_y, kWidth, kHeight - backdrop_y}, 0, tone::night);
         ui::draw_hints(canvas.list, canvas.fonts, ui::GlyphStyle::dark(), hints, first_row,
                        kWidth - kMargin, true, layout);
-        layout.cy = kHintsY;
+        layout.cy = footer_y;
         ui::draw_hints(canvas.list, canvas.fonts, ui::GlyphStyle::dark(), hints + first_row,
                        count - first_row, kWidth - kMargin, true, layout);
     }
