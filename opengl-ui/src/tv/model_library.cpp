@@ -453,9 +453,7 @@ void Model::commit_local_form()
 {
     account_step_ = AccountStep::none;
     local_form_.id = editing_source_id_;
-    if (local_form_.name.empty())
-        local_form_.name = local_form_.kind == 4 ? "HDHomeRun" : "Tvheadend";
-    if (!valid_source(local_form_))
+    if (!valid_source(local_form_, true))
         notify(Level::error, tr("The TV server details could not be saved"),
                tr("Check the address and account details."));
     else
@@ -471,9 +469,6 @@ bool Model::save_source_form(std::string_view url, const iptv::XtreamCredentials
     source.id = editing_source_id_;
     source.kind = account != nullptr ? 2 : 1;
     source.url = url;
-    if (source.name.empty())
-        source.name = std::string(account != nullptr ? "Xtream account " : "Playlist ") +
-                      std::to_string(sources_.size() - 2);
     if (account != nullptr)
     {
         source.username = account->username;
@@ -540,8 +535,6 @@ void Model::on_portal_mac(const char *text, void *self)
     source.kind = 3;
     source.url = model.portal_form_.url;
     source.mac = model.portal_form_.mac;
-    if (source.name.empty())
-        source.name = "MAC-code portal " + std::to_string(model.sources_.size() - 2);
     (void)model.commit_source(std::move(source));
     model.portal_form_ = {};
 }
